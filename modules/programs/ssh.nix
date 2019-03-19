@@ -66,10 +66,10 @@ let
       };
 
       identityFile = mkOption {
-        type = types.nullOr types.str;
+        type = types.nullOr (types.either types.str (types.listOf types.str));
         default = null;
         description = ''
-          Specifies a file from which the user identity is read.
+          Specifies files from which the user identity is read.
         '';
       };
 
@@ -132,7 +132,7 @@ let
       };
 
       certificateFile = mkOption {
-        type = types.nullOr types.path;
+        type = types.nullOr (types.either types.path (types.listOf types.path));
         default = null;
         description = ''
           Specifies a file from which the user certificate is read.
@@ -148,7 +148,7 @@ let
       };
 
       extraOptions = mkOption {
-        type = types.attrsOf types.str;
+        type = types.attrsOf (types.either types.str (types.listOf types.str));
         default = {};
         description = "Extra configuration options for the host.";
       };
@@ -157,7 +157,9 @@ let
     config.host = mkDefault name;
   });
 
-  matchBlockStr = cf: concatStringsSep "\n" (
+  writeMaybeList = opt: cf: (map (value: "${opt} ${value}") (toList cf));
+
+  matchBlockStr = cf: concatStringsSep "\n" (flatten (
     ["Host ${cf.host}"]
     ++ optional (cf.port != null)            "  Port ${toString cf.port}"
     ++ optional (cf.forwardAgent != null)    "  ForwardAgent ${yn cf.forwardAgent}"
@@ -165,8 +167,10 @@ let
     ++ optional cf.forwardX11Trusted         "  ForwardX11Trusted yes"
     ++ optional cf.identitiesOnly            "  IdentitiesOnly yes"
     ++ optional (cf.user != null)            "  User ${cf.user}"
-    ++ optional (cf.identityFile != null)    "  IdentityFile ${cf.identityFile}"
-    ++ optional (cf.certificateFile != null) "  CertificateFile ${cf.certificateFile}"
+    ++ optional (cf.identityFile != null)
+        (writeMaybeList "  IdentityFile" cf.identityFile)
+    ++ optional (cf.certificateFile != null)
+        (writeMaybeList "  CertificateFile" cf.certificateFile)
     ++ optional (cf.hostname != null)        "  HostName ${cf.hostname}"
     ++ optional (cf.addressFamily != null)   "  AddressFamily ${cf.addressFamily}"
     ++ optional (cf.sendEnv != [])           "  SendEnv ${unwords cf.sendEnv}"
@@ -176,8 +180,8 @@ let
     ++ optional (!cf.checkHostIP)            "  CheckHostIP no"
     ++ optional (cf.proxyCommand != null)    "  ProxyCommand ${cf.proxyCommand}"
     ++ optional (cf.proxyJump != null)       "  ProxyJump ${cf.proxyJump}"
-    ++ mapAttrsToList (n: v: "  ${n} ${v}") cf.extraOptions
-  );
+    ++ (mapAttrsToList (n: writeMaybeList "  ${n}") cf.extraOptions)
+  ));
 
 in
 
