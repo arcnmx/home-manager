@@ -15,7 +15,7 @@ let
 
       formatValue = v:
         if isBool v then (if v then "true" else "false")
-        else if isList v then concatMapStringsSep ", " formatList v
+        else if isList v then concatMapStringsSep "," formatList v
         else toString v;
     in
       "${n}: ${formatValue v}";
